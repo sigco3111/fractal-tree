@@ -33,6 +33,25 @@
 
 ---
 
+## 📜 원본 미션 프롬프트
+
+이 프로젝트는 아래 프롬프트를 **그대로** MiniMax-M3에 전달하여 생성되었습니다.
+
+> 수학적 재귀 함수(Recursion)를 사용하여 화면 바닥에서부터 기하학적인 황금색 나무가 서서히 자라나며 가지를 치는 L-System 애니메이션을 구현하고, 성장이 끝난 가지 끝에서는 벚꽃 잎 같은 핑크색 파티클이 생성되어 바람에 날려 바닥으로 떨어지는 서정적이고 감성적인 제너레이티브 아트를 코딩해줘.
+>
+> **Implementation Advice:** Use HTML5 Canvas. Build a recursive function for the branches (Fractal Tree). For the falling petals, create a simple particle system array after the tree finishes "growing" (animating the recursion depth). 모든 의존관계의 코드를 하나의 HTML에 담는 형태로 코드 작성.
+
+요구사항 체크리스트:
+
+- [ ] 수학적 재귀 함수 (Recursion) 기반 가지 생성
+- [ ] 화면 바닥에서 위로 자라나는 L-System 애니메이션
+- [ ] 황금색 기하학적 나무
+- [ ] 성장 종료 후 꽃잎 입자 시스템
+- [ ] 핑크색 벚꽃 + 바람 + 낙하
+- [ ] HTML5 Canvas + 단일 HTML (의존성 0)
+
+---
+
 ## 📁 구조
 
 ```
