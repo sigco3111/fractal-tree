@@ -2,11 +2,938 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>Fractal Tree — Cherry Blossom</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>황금 벚꽃 — Golden Sakura · Generative Botany</title>
+  <style>
+    :root {
+      --ink-warm: #f4dca0;
+      --ink-cool: #c8b890;
+      --ink-dim:  #8a7a5a;
+      --bg:       #07060f;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink-cool);
+      font-family: 'Noto Serif KR', 'Apple SD Gothic Neo', 'Georgia', serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    canvas#stage {
+      display: block;
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      cursor: crosshair;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 7%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 2.6s ease-out;
+    }
+    .overlay.visible { opacity: 1; }
+    .overlay h1 {
+      font-size: clamp(28px, 4.2vw, 60px);
+      font-weight: 300;
+      letter-spacing: 0.35em;
+      color: var(--ink-warm);
+      text-shadow:
+        0 0 24px rgba(255, 200, 100, 0.35),
+        0 0 60px rgba(255, 180, 80, 0.18);
+      margin: 0;
+    }
+    .overlay .ko {
+      font-size: clamp(11px, 1vw, 13px);
+      letter-spacing: 0.4em;
+      margin-top: 18px;
+      color: var(--ink-cool);
+      opacity: 0.65;
+      text-transform: uppercase;
+    }
+
+    .palette-label {
+      position: absolute;
+      top: 17%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 1.4s ease;
+      white-space: nowrap;
+    }
+    .palette-label.visible { opacity: 0.78; }
+    .palette-label .mode {
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      color: var(--ink-warm);
+      text-transform: uppercase;
+    }
+    .palette-label .name {
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      color: var(--ink-cool);
+      margin-top: 6px;
+      opacity: 0.85;
+    }
+    .palette-label .seed {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--ink-dim);
+      margin-top: 14px;
+      opacity: 0.7;
+    }
+
+    .phase {
+      position: absolute;
+      bottom: 4.5%;
+      left: 4%;
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      pointer-events: none;
+    }
+    .phase.visible { opacity: 0.85; }
+    .phase .dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-warm);
+      box-shadow: 0 0 8px rgba(255, 200, 100, 0.6);
+      margin-right: 12px;
+      vertical-align: middle;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%      { opacity: 1.0;  }
+    }
+
+    .palette-rail {
+      position: absolute;
+      bottom: 4%;
+      right: 4%;
+      z-index: 10;
+      display: flex;
+      gap: 10px;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+    .palette-rail.visible { opacity: 1; }
+    .palette-rail .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 1.5px solid rgba(255, 215, 130, 0.18);
+      box-shadow: 0 0 0 0 rgba(255, 215, 130, 0);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .palette-rail .swatch:hover {
+      transform: scale(1.10);
+      box-shadow: 0 0 18px rgba(255, 215, 130, 0.35);
+      border-color: rgba(255, 215, 130, 0.5);
+    }
+    .palette-rail .swatch.active {
+      border-color: rgba(255, 215, 130, 0.85);
+      box-shadow: 0 0 22px rgba(255, 215, 130, 0.45);
+    }
+    .palette-rail .swatch::after {
+      content: attr(data-num);
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: var(--ink-dim);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .palette-rail .swatch:hover::after { opacity: 0.7; }
+
+    .hint-key {
+      position: absolute;
+      bottom: 4%;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      font-size: 9px;
+      letter-spacing: 0.35em;
+      color: var(--ink-dim);
+      opacity: 0;
+      transition: opacity 1.6s ease;
+      z-index: 5;
+    }
+    .hint-key.visible { opacity: 0.5; }
+  </style>
 </head>
 <body>
-  <!-- TODO: implement via OpenCode + MiniMax-M3 -->
-  <!-- 프랙탈 나무 성장 + 벚꽃 입자 시스템 -->
-  <canvas id="canvas"></canvas>
+  <canvas id="stage"></canvas>
+
+  <div class="overlay" id="overlay">
+    <h1>황금 벚꽃</h1>
+    <p class="ko">a generative botany</p>
+  </div>
+
+  <div class="palette-label" id="paletteLabel">
+    <div class="mode" id="paletteMode">황혼 · TWILIGHT</div>
+    <div class="name" id="seedName">별빛 아래 정원</div>
+    <div class="seed" id="seedHint">1 / 2 / 3 / 4 · R · click</div>
+  </div>
+
+  <div class="phase" id="phase">
+    <span class="dot"></span><span id="phaseText">— 자라나는 중 —</span>
+  </div>
+
+  <div class="palette-rail" id="paletteRail">
+    <div class="swatch" data-mode="twilight"  data-num="1" id="sw1" style="background: linear-gradient(135deg, #1c1738 0%, #f4dca0 100%)"></div>
+    <div class="swatch" data-mode="dawn"      data-num="2" id="sw2" style="background: linear-gradient(135deg, #3a1e30 0%, #ffb0c0 100%)"></div>
+    <div class="swatch" data-mode="midnight"  data-num="3" id="sw3" style="background: linear-gradient(135deg, #0a0a1a 0%, #e0e8ff 100%)"></div>
+    <div class="swatch" data-mode="autumn"    data-num="4" id="sw4" style="background: linear-gradient(135deg, #2c1810 0%, #ff9050 100%)"></div>
+  </div>
+
+  <div class="hint-key" id="hintKey">1 / 2 / 3 / 4 · 클릭하여 분위기 전환 · R 심기</div>
+
+  <script>
+  /* ============================================================
+     황금 벚꽃 — Golden Sakura  (v0.5)
+     Single-file generative art. v0.5 adds:
+       · 4 mood palettes (황혼 / 여명 / 한밤 / 가을)
+       · Smooth 0.6s cross-fade between palettes
+       · Mouse-position wind influence on petals
+       · Petal settling at the ground (graceful 1.5s fade)
+       · Floating motes (ambient pollen layer)
+       · Poetic seed-name label per replant
+     ============================================================ */
+  (function () {
+    'use strict';
+
+    // ----- DOM -----
+    const canvas        = document.getElementById('stage');
+    const ctx           = canvas.getContext('2d');
+    const overlay       = document.getElementById('overlay');
+    const phaseEl       = document.getElementById('phase');
+    const phaseText     = document.getElementById('phaseText');
+    const paletteLabel  = document.getElementById('paletteLabel');
+    const paletteMode   = document.getElementById('paletteMode');
+    const seedNameEl    = document.getElementById('seedName');
+    const seedHintEl    = document.getElementById('seedHint');
+    const paletteRail   = document.getElementById('paletteRail');
+    const hintKey       = document.getElementById('hintKey');
+    const swatches      = {
+      twilight: document.getElementById('sw1'),
+      dawn:     document.getElementById('sw2'),
+      midnight: document.getElementById('sw3'),
+      autumn:   document.getElementById('sw4'),
+    };
+
+    // ----- State -----
+    let W = 0, H = 0, dpr = 1;
+    let rand;                    // seeded RNG
+    let stars;                   // background starfield
+    let motes;                   // ambient floating pollen
+    let treeParams;              // per-session tree shape parameters
+    let tipPositions;            // collected leaf tips for petal spawning
+    let petals;                  // particle system array
+    let treeGrowth;              // 0..1, fraction of tree grown
+    let elapsed;                 // ms since (re)plant
+    let lastFrameTime;
+    let lastPetalSpawn;
+    let phaseShown;              // currently displayed phase label
+
+    // ----- Palette state -----
+    let paletteFrom = 'twilight';
+    let paletteTo   = 'twilight';
+    let paletteT    = 1.0;       // 0..1, 1 = fully at paletteTo
+    let currentSeedName = '';
+
+    // ----- Mouse wind state -----
+    let mouseXNorm  = 0;         // -1 (left) → +1 (right)
+    let lastMouseMs = -10000;    // timestamp of last move (start as 'long ago')
+
+    // ----- Poetic seed-name pool -----
+    const SEED_NAMES = [
+      '별빛 아래 정원',     '고요한 새벽',         '봄의 첫숨',         '바람의 노래',
+      '벚꽃의 춤',         '황혼의 정원',         '달이 머무는 곳',     '별이 피는 나무',
+      '잊혀진 노래',       '하얀 바람',           '오래된 약속',       '빛의 기억',
+      '나무의 꿈',         '꽃잎의 기도',         '잠 못 드는 밤',     '비 내리는 사잠',
+      '안개의 시',         '노을의 정거장',       '강가에서',          '고요한 자정',
+      '별이 내리는 사잠',   '안식의 정원',         '빛의 강',           '마지막 노을',
+      '여름의 끝자락',     '가을의 첫 이슬',      '겨울의 입맞춤',     '봄날의 인연',
+    ];
+
+    // ----- Palettes (all colors as [r,g,b] or [r,g,b,a] for easy lerping) -----
+    const PALETTES = {
+      twilight: {
+        name:        '황혼',
+        nameEn:      'Twilight',
+        backdrop:    [[28, 23, 56],  [15, 12, 32],  [6,  5,  13]],
+        moonGlow:    [255, 235, 200, 0.10],
+        starWarm:    [255, 230, 180],
+        starCool:    [200, 220, 255],
+        tree:        [[148, 92, 28],  [255, 232, 124]],
+        treeVariants: [
+          [148,  92,  28, 255, 232, 124],   // warm-gold
+          [132,  72,  20, 255, 198,  88],   // amber
+          [168, 118,  62, 255, 242, 178],   // champagne
+          [115,  68,  28, 246, 192, 110],   // bronze
+          [160, 108,  36, 252, 226, 148],   // honey
+        ],
+        petalHue:    [338, 360],
+        petalSat:    [ 65,  93],
+        petalLum:    [ 72,  86],
+        ground:      [255, 200, 110, 0.20],
+        groundMid:   [255, 170,  80, 0.07],
+        vignette:    0.55,
+      },
+      dawn: {
+        name:        '여명',
+        nameEn:      'Dawn',
+        backdrop:    [[58, 30, 48],  [92, 44, 62],  [122, 58, 77]],
+        moonGlow:    [255, 200, 220, 0.12],
+        starWarm:    [255, 220, 240],
+        starCool:    [255, 230, 250],
+        tree:        [[170, 95, 100], [255, 220, 210]],
+        treeVariants: [
+          [175,  90, 105, 255, 215, 215],   // rose-gold
+          [185, 115,  95, 255, 232, 215],   // peach
+          [200, 130,  98, 255, 238, 225],   // apricot
+          [160,  85,  90, 250, 200, 200],   // rose
+        ],
+        petalHue:    [320, 340],
+        petalSat:    [ 50,  80],
+        petalLum:    [ 80,  92],
+        ground:      [255, 180, 200, 0.18],
+        groundMid:   [255, 150, 180, 0.06],
+        vignette:    0.40,
+      },
+      midnight: {
+        name:        '한밤',
+        nameEn:      'Midnight',
+        backdrop:    [[10, 10, 26],  [ 5,  5, 16],  [ 2,  2,  8]],
+        moonGlow:    [180, 200, 255, 0.10],
+        starWarm:    [255, 255, 255],
+        starCool:    [200, 220, 255],
+        tree:        [[120, 130, 145], [230, 240, 255]],
+        treeVariants: [
+          [120, 130, 145, 230, 240, 255],   // silver
+          [140, 145, 160, 240, 245, 255],   // platinum
+          [110, 120, 140, 220, 235, 255],   // moonstone
+          [148, 152, 168, 245, 248, 255],   // pearl
+        ],
+        petalHue:    [200, 220],
+        petalSat:    [ 40,  70],
+        petalLum:    [ 75,  90],
+        ground:      [180, 200, 255, 0.15],
+        groundMid:   [160, 180, 240, 0.05],
+        vignette:    0.65,
+      },
+      autumn: {
+        name:        '가을',
+        nameEn:      'Autumn',
+        backdrop:    [[44, 24, 16],  [26, 14,  8],  [12,  6,  4]],
+        moonGlow:    [255, 200, 120, 0.10],
+        starWarm:    [255, 220, 180],
+        starCool:    [255, 200, 150],
+        tree:        [[130, 70, 30],  [255, 150,  60]],
+        treeVariants: [
+          [130,  70,  30, 255, 150,  60],   // copper
+          [115,  55,  25, 245, 130,  50],   // rust
+          [145,  80,  35, 255, 175,  85],   // ochre
+          [125,  60,  30, 250, 140,  55],   // amber-glow
+        ],
+        petalHue:    [  0,  30],
+        petalSat:    [ 70,  95],
+        petalLum:    [ 50,  70],
+        ground:      [255, 150,  80, 0.20],
+        groundMid:   [255, 130,  60, 0.07],
+        vignette:    0.50,
+      },
+    };
+
+    // ----- Resize -----
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width  = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // ----- Seeded RNG (Mulberry32) -----
+    function mulberry32(seed) {
+      return function () {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // ----- Helpers -----
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
+
+    function css3(c) { return `rgb(${c[0]|0}, ${c[1]|0}, ${c[2]|0})`; }
+    function css4(c) { return `rgba(${c[0]|0}, ${c[1]|0}, ${c[2]|0}, ${c[3].toFixed(3)})`; }
+    function lerpArr3(a, b, t) {
+      return [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)), Math.round(lerp(a[2], b[2], t))];
+    }
+    function lerpArr4(a, b, t) {
+      return [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)),
+              Math.round(lerp(a[2], b[2], t)), lerp(a[3], b[3], t)];
+    }
+
+    // ----- Live palette (lerps between paletteFrom and paletteTo) -----
+    function getLivePalette() {
+      if (paletteT >= 1) return PALETTES[paletteTo];
+      const t = easeInOut(paletteT);
+      const a = PALETTES[paletteFrom], b = PALETTES[paletteTo];
+      return {
+        name:      t < 0.5 ? a.name : b.name,
+        nameEn:    t < 0.5 ? a.nameEn : b.nameEn,
+        backdrop:  [lerpArr3(a.backdrop[0],  b.backdrop[0],  t),
+                    lerpArr3(a.backdrop[1],  b.backdrop[1],  t),
+                    lerpArr3(a.backdrop[2],  b.backdrop[2],  t)],
+        moonGlow:  lerpArr4(a.moonGlow,  b.moonGlow,  t),
+        starWarm:  lerpArr3(a.starWarm,  b.starWarm,  t),
+        starCool:  lerpArr3(a.starCool,  b.starCool,  t),
+        tree:      [lerpArr3(a.tree[0],  b.tree[0],  t), lerpArr3(a.tree[1],  b.tree[1],  t)],
+        petalHue:  [lerp(a.petalHue[0],  b.petalHue[0],  t), lerp(a.petalHue[1],  b.petalHue[1],  t)],
+        petalSat:  [lerp(a.petalSat[0],  b.petalSat[0],  t), lerp(a.petalSat[1],  b.petalSat[1],  t)],
+        petalLum:  [lerp(a.petalLum[0],  b.petalLum[0],  t), lerp(a.petalLum[1],  b.petalLum[1],  t)],
+        ground:    lerpArr4(a.ground,    b.ground,    t),
+        groundMid: lerpArr4(a.groundMid, b.groundMid, t),
+        vignette:  lerp(a.vignette,    b.vignette,    t),
+      };
+    }
+
+    // ----- Init / replant -----
+    function init(seed) {
+      rand = mulberry32(seed >>> 0);
+
+      // Pick tree variant from current palette
+      const palette = PALETTES[paletteTo];
+      const variant = palette.treeVariants[(rand() * palette.treeVariants.length) | 0];
+      const [tR, tG, tB, tipR, tipG, tipB] = variant;
+
+      treeParams = {
+        maxDepth: 9,
+        baseLength: Math.min(W, H) * (0.155 + rand() * 0.025),
+        angleSpread: 0.36 + rand() * 0.18,
+        lengthDecay: 0.70 + rand() * 0.08,
+        leftBias:    0.85 + rand() * 0.30,
+        rightBias:   0.85 + rand() * 0.30,
+        trunkThicknessMult: 0.88 + rand() * 0.24,
+        thirdBranchProb:    0.30 + rand() * 0.30,
+        depthDelay:   0.063,
+        depthDuration: 0.36,
+        trunkR: tR, trunkG: tG, trunkB: tB,
+        tipR:  tipR, tipG: tipG, tipB: tipB,
+      };
+
+      // Starfield
+      stars = [];
+      for (let i = 0; i < 220; i++) {
+        stars.push({
+          x: rand() * W,
+          y: rand() * H * 0.85,
+          size: 0.5 + rand() * 1.5,
+          twPhase: rand() * Math.PI * 2,
+          twSpeed: 0.0008 + rand() * 0.0028,
+          warm: rand() > 0.78,
+        });
+      }
+
+      // Floating motes (ambient pollen)
+      motes = [];
+      for (let i = 0; i < 7; i++) {
+        motes.push({
+          x: rand() * W,
+          y: rand() * H,
+          vx: (rand() - 0.5) * 0.04,
+          vy: -0.04 - rand() * 0.06,
+          size: 0.6 + rand() * 1.2,
+          twPhase: rand() * Math.PI * 2,
+          twSpeed: 0.0006 + rand() * 0.0010,
+        });
+      }
+
+      // Poetic seed-name
+      currentSeedName = SEED_NAMES[(rand() * SEED_NAMES.length) | 0];
+
+      tipPositions   = [];
+      petals         = [];
+      treeGrowth     = 0;
+      elapsed        = 0;
+      lastFrameTime  = performance.now();
+      lastPetalSpawn = 0;
+      phaseShown     = null;
+
+      ctx.fillStyle = '#07060f';
+      ctx.fillRect(0, 0, W, H);
+
+      overlay.classList.remove('visible');
+      void overlay.offsetWidth;
+      overlay.classList.add('visible');
+      paletteLabel.classList.add('visible');
+      phaseEl.classList.add('visible');
+      paletteRail.classList.add('visible');
+      hintKey.classList.add('visible');
+      updatePaletteLabel();
+    }
+
+    // ----- Tree color (depth gradient) -----
+    function depthColor(depthT) {
+      const p = getLivePalette();
+      const ease = depthT * depthT;
+      const r = Math.round(lerp(p.tree[0][0], p.tree[1][0], ease));
+      const g = Math.round(lerp(p.tree[0][1], p.tree[1][1], depthT));
+      const b = Math.round(lerp(p.tree[0][2], p.tree[1][2], ease * 0.7));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // ----- Backdrop + stars -----
+    function drawBackdropAndStars() {
+      const p = getLivePalette();
+
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0,    css3(p.backdrop[0]));
+      g.addColorStop(0.45, css3(p.backdrop[1]));
+      g.addColorStop(1,    css3(p.backdrop[2]));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Moon glow
+      const moonX = W * 0.78;
+      const moonY = H * 0.20;
+      const moonR = Math.min(W, H) * 0.32;
+      const mg = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR);
+      mg.addColorStop(0,    css4(p.moonGlow));
+      mg.addColorStop(0.45, `rgba(${p.moonGlow[0]}, ${p.moonGlow[1]}, ${p.moonGlow[2]}, ${(p.moonGlow[3]*0.35).toFixed(3)})`);
+      mg.addColorStop(1,    'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = mg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Stars
+      const t = elapsed;
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        const tw = 0.70 + 0.30 * Math.sin(t * s.twSpeed + s.twPhase);
+        const a  = tw * 0.85;
+        const c  = s.warm ? p.starWarm : p.starCool;
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ----- Floating motes (drift up, loop) -----
+    function updateAndDrawMotes() {
+      const p = getLivePalette();
+      const c = p.starCool;
+      for (let i = 0; i < motes.length; i++) {
+        const m = motes[i];
+        m.x += m.vx;
+        m.y += m.vy;
+        if (m.y < -8) m.y = H + 8;
+        if (m.x < -8) m.x = W + 8;
+        if (m.x > W + 8) m.x = -8;
+
+        const tw = 0.55 + 0.45 * Math.sin(elapsed * m.twSpeed + m.twPhase);
+        const a  = 0.30 * tw;
+        ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ----- Vignette -----
+    function drawVignette(strength) {
+      const vg = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.18,
+                                          W / 2, H * 0.55, Math.max(W, H) * 0.95);
+      vg.addColorStop(0,    'rgba(0,0,0,0)');
+      vg.addColorStop(0.65, 'rgba(0,0,0,0)');
+      vg.addColorStop(1,    `rgba(0,0,0,${strength})`);
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ----- Ground warmth -----
+    function drawGroundWarmth(intensity) {
+      if (intensity <= 0) return;
+      const p = getLivePalette();
+      const cx = W / 2;
+      const cy = H - 6;
+      const reach = Math.min(W, H) * (0.32 + 0.12 * intensity);
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, reach);
+      grad.addColorStop(0,    css4([p.ground[0], p.ground[1], p.ground[2], p.ground[3] * intensity]));
+      grad.addColorStop(0.35, css4([p.groundMid[0], p.groundMid[1], p.groundMid[2], p.groundMid[3] * intensity]));
+      grad.addColorStop(1,    'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(cx - reach * 1.6, cy - reach * 0.4, reach * 3.2, reach * 1.6);
+    }
+
+    // ----- Recursive branch drawer -----
+    function drawBranch(x, y, angle, length, depth, growth) {
+      const maxDepth = treeParams.maxDepth;
+      if (depth > maxDepth) return;
+      if (length < 2)        return;
+
+      const start  = depth * treeParams.depthDelay;
+      const localG = clamp((growth - start) / treeParams.depthDuration, 0, 1);
+      if (localG <= 0) return;
+
+      const drawn = length * localG;
+      if (drawn < 0.4) return;
+
+      const x2 = x + Math.cos(angle) * drawn;
+      const y2 = y - Math.sin(angle) * drawn;
+
+      const thickness = clamp(
+        ((maxDepth - depth) * 0.55 + 0.7) * treeParams.trunkThicknessMult,
+        0.55, 10.5
+      );
+      ctx.strokeStyle = depthColor(depth / maxDepth);
+      ctx.lineWidth   = thickness;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      if (thickness > 2.4) {
+        const p = getLivePalette();
+        ctx.strokeStyle = `rgba(${Math.min(255, p.tree[1][0] + 10)}, ${Math.min(255, p.tree[1][1] + 10)}, ${Math.min(255, p.tree[1][2] + 10)}, ${0.10 * (maxDepth - depth) / maxDepth})`;
+        ctx.lineWidth = Math.max(0.6, thickness * 0.30);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+
+      if (localG < 0.985) return;
+
+      const childLen = length * treeParams.lengthDecay;
+      const jitter1  = 0.78 + rand() * 0.42;
+      const jitter2  = 0.78 + rand() * 0.42;
+      const spread1  = treeParams.angleSpread * jitter1 * treeParams.leftBias;
+      const spread2  = treeParams.angleSpread * jitter2 * treeParams.rightBias;
+      drawBranch(x2, y2, angle - spread1, childLen, depth + 1, growth);
+      drawBranch(x2, y2, angle + spread2, childLen, depth + 1, growth);
+
+      if (depth < maxDepth - 2 && rand() > (1 - treeParams.thirdBranchProb)) {
+        const tilt = (rand() - 0.5) * treeParams.angleSpread * 0.7;
+        drawBranch(x2, y2, angle + tilt, childLen * 0.68, depth + 1, growth);
+      }
+
+      if (depth === maxDepth - 1) {
+        tipPositions.push({ x: x2, y: y2, depth: depth + 1 });
+      }
+    }
+
+    // ----- Mouse wind (decays on idle) -----
+    function getWindBias() {
+      const idle = elapsed - lastMouseMs;
+      if (idle > 8000) return 0;
+      const fade = 1 - idle / 8000;
+      return mouseXNorm * 0.35 * fade;        // ±0.35 px/frame max
+    }
+
+    // ----- Petal particle (settles gracefully at the ground) -----
+    class Petal {
+      constructor(x, y) {
+        this.x  = x + (rand() - 0.5) * 6;
+        this.y  = y + (rand() - 0.5) * 4;
+        this.vx = (rand() - 0.5) * 0.04;
+        this.vy = 0.10 + rand() * 0.10;
+        this.rot    = rand() * Math.PI * 2;
+        this.rotSpd = (rand() - 0.5) * 0.012;
+        this.size    = 3.2 + rand() * 5.6;
+        this.sizeT   = (this.size - 3.2) / 5.6;
+        this.driftPhase = rand() * Math.PI * 2;
+        this.hueBase   = rand();
+        this.life      = 1.0;
+        this.born      = elapsed;
+        this.maxAge    = 16000 + rand() * 9000;
+        this.settled   = false;
+        this.settleStart = 0;
+      }
+
+      update(dt) {
+        // Settling — gentle 1.5s fade at the ground instead of vanishing
+        if (this.settled) {
+          const age = elapsed - this.settleStart;
+          this.life = clamp(1 - age / 1500, 0, 1);
+          this.vx *= 0.85;
+          return;
+        }
+
+        // Gentle gravity + size-dependent terminal velocity
+        this.vy += 0.0045 * dt;
+        const terminal = 0.95 - 0.18 * this.sizeT;
+        if (this.vy > terminal) this.vy = terminal;
+
+        // Almost imperceptible drift + mouse-wind bias
+        const drift = Math.sin(elapsed * 0.00030 + this.driftPhase);
+        this.vx = 0.06 * drift * (1 - 0.3 * this.sizeT) + getWindBias();
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.rot += this.rotSpd * dt;
+
+        // Ground contact → begin settling
+        if (this.y >= H - 6) {
+          this.settled = true;
+          this.settleStart = elapsed;
+          this.y = H - 6 - rand() * 3;
+          this.vx *= 0.30;
+          this.vy = 0;
+        }
+
+        if (this.x < -60 || this.x > W + 60) this.life = 0;
+        const age = elapsed - this.born;
+        if (age > this.maxAge - 2000) {
+          this.life = clamp(1 - (age - (this.maxAge - 2000)) / 2000, 0, 1);
+        }
+      }
+
+      draw(ctx) {
+        if (this.life <= 0) return;
+        const p = getLivePalette();
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rot);
+        ctx.globalAlpha = 0.95 * this.life;
+
+        const s = this.size;
+        const hueBase = this.hueBase;
+        const hue = p.petalHue[0] + hueBase * (p.petalHue[1] - p.petalHue[0]);
+        const sat = p.petalSat[0] + hueBase * (p.petalSat[1] - p.petalSat[0]);
+        const lum = p.petalLum[0] + hueBase * (p.petalLum[1] - p.petalLum[0]);
+
+        const grad = ctx.createLinearGradient(0, -s * 0.5, 0, s * 0.5);
+        grad.addColorStop(0,    `hsl(${hue + 4}, ${Math.min(98, sat + 8)}%, ${Math.min(94, lum + 10)}%)`);
+        grad.addColorStop(0.55, `hsl(${hue}, ${sat}%, ${lum}%)`);
+        grad.addColorStop(1,    `hsl(${hue - 4}, ${Math.max(50, sat - 12)}%, ${Math.max(58, lum - 12)}%)`);
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.5);
+        ctx.bezierCurveTo( s * 0.72, -s * 0.45,  s * 0.55, s * 0.4,   0, s * 0.5);
+        ctx.bezierCurveTo(-s * 0.55,  s * 0.4,  -s * 0.72, -s * 0.45, 0, -s * 0.5);
+        ctx.fill();
+
+        const accent = (1 - 0.20 * this.sizeT);
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${Math.min(96, lum + 12)}%, 0.45)`;
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.16, -s * 0.05, s * 0.26 * accent,
+                    s * 0.16 * accent, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `hsla(${hue - 8}, ${sat}%, ${Math.max(56, lum - 18)}%, 0.26)`;
+        ctx.beginPath();
+        ctx.ellipse(s * 0.18, s * 0.12, s * 0.22 * accent,
+                    s * 0.13 * accent,  0.20, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    // ----- Tuning -----
+    const TREE_GROW_TIME   = 10500;
+    const SETTLE_DELAY     = 1200;
+    const PETAL_SPAWN_MS   = 90;
+    const MAX_PETALS       = 150;
+    const PALETTE_FADE_MS  = 600;
+
+    // ----- Palette switching -----
+    function setPalette(name, instant) {
+      if (!PALETTES[name]) return;
+      if (name === paletteTo && paletteT >= 1) return;
+      paletteFrom = paletteTo;
+      paletteTo   = name;
+      paletteT    = instant ? 1 : 0;
+      for (const k in swatches) {
+        swatches[k].classList.toggle('active', k === name);
+      }
+      updatePaletteLabel();
+    }
+
+    function updatePaletteLabel() {
+      const p = PALETTES[paletteTo];
+      paletteMode.textContent = `${p.name} · ${p.nameEn.toUpperCase()}`;
+      seedHintEl.textContent = '1 / 2 / 3 / 4 · R · click';
+      if (currentSeedName) seedNameEl.textContent = currentSeedName;
+    }
+
+    // ----- Per-frame update & render -----
+    function update() {
+      const now = performance.now();
+      let dt = now - lastFrameTime;
+      if (dt > 100) dt = 100;
+      lastFrameTime = now;
+      elapsed += dt;
+
+      if (treeGrowth < 1) treeGrowth = clamp(elapsed / TREE_GROW_TIME, 0, 1);
+      if (paletteT < 1)    paletteT    = Math.min(1, paletteT + dt / PALETTE_FADE_MS);
+
+      const grewFully    = treeGrowth >= 1;
+      const canSpawnPets = elapsed > TREE_GROW_TIME + SETTLE_DELAY;
+
+      const label = !grewFully
+        ? '— 자라나는 중 —'
+        : !canSpawnPets
+        ? '— 만개 —'
+        : '— 흩날리는 꽃잎 —';
+      if (label !== phaseShown) {
+        phaseText.textContent = label;
+        phaseShown = label;
+        if (grewFully) overlay.classList.remove('visible');
+      }
+
+      // 1) Backdrop + stars
+      drawBackdropAndStars();
+
+      // 1.4) Floating motes
+      updateAndDrawMotes();
+
+      // 1.5) Ground warmth
+      drawGroundWarmth(treeGrowth);
+
+      // 2) Tree
+      tipPositions.length = 0;
+      drawBranch(W / 2, H - 6, Math.PI / 2, treeParams.baseLength, 0, treeGrowth);
+
+      // 3) Bloom halo during settle
+      if (grewFully && !canSpawnPets && tipPositions.length) {
+        const settleT = clamp((elapsed - TREE_GROW_TIME) / SETTLE_DELAY, 0, 1);
+        const flash   = Math.sin(settleT * Math.PI);
+        let cx = 0, cy = 0;
+        for (let i = 0; i < tipPositions.length; i++) {
+          cx += tipPositions[i].x; cy += tipPositions[i].y;
+        }
+        cx /= tipPositions.length; cy /= tipPositions.length;
+        const reach = Math.min(W, H) * (0.36 * (0.6 + 0.4 * settleT));
+        const p = getLivePalette();
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, reach);
+        grad.addColorStop(0,   `rgba(${p.ground[0]}, ${p.ground[1]}, ${p.ground[2]}, ${(0.32 * flash).toFixed(3)})`);
+        grad.addColorStop(0.4, `rgba(${p.ground[0]}, ${p.ground[1]}, ${p.ground[2]}, ${(0.14 * flash).toFixed(3)})`);
+        grad.addColorStop(1,   'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // 4) Vignette
+      drawVignette(getLivePalette().vignette);
+
+      // 5) Spawn petals
+      if (canSpawnPets && tipPositions.length) {
+        if (!lastPetalSpawn || (elapsed - lastPetalSpawn) >= PETAL_SPAWN_MS) {
+          lastPetalSpawn = elapsed;
+          if (petals.length < MAX_PETALS) {
+            const tip = tipPositions[(rand() * tipPositions.length) | 0];
+            petals.push(new Petal(tip.x, tip.y));
+          }
+        }
+      }
+
+      // 6) Update + draw petals
+      const step = dt / 16.6667;
+      for (let i = petals.length - 1; i >= 0; i--) {
+        const p = petals[i];
+        p.update(step);
+        if (p.life <= 0) {
+          petals[i] = petals[petals.length - 1];
+          petals.pop();
+        } else {
+          p.draw(ctx);
+        }
+      }
+    }
+
+    function loop() {
+      update();
+      requestAnimationFrame(loop);
+    }
+
+    function replant() {
+      init(Math.floor(Math.random() * 0x7fffffff));
+    }
+
+    // ----- Wire up -----
+    window.addEventListener('resize', resize);
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (W > 0) {
+        mouseXNorm = (e.clientX / W) * 2 - 1;
+        lastMouseMs = elapsed;
+      }
+    });
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches[0] && W > 0) {
+        mouseXNorm = (e.touches[0].clientX / W) * 2 - 1;
+        lastMouseMs = elapsed;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    // Click on canvas replants; click on a swatch switches palette
+    canvas.addEventListener('click', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('swatch')) return;
+      replant();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R' || e.code === 'Space') {
+        e.preventDefault();
+        replant();
+      } else if (e.key === '1') setPalette('twilight');
+      else if (e.key === '2') setPalette('dawn');
+      else if (e.key === '3') setPalette('midnight');
+      else if (e.key === '4') setPalette('autumn');
+    });
+
+    for (const k in swatches) {
+      swatches[k].addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        setPalette(k);
+      });
+    }
+
+    // ----- Boot -----
+    resize();
+    init(Math.floor(Math.random() * 0x7fffffff));
+    setPalette('twilight', true);
+    requestAnimationFrame(loop);
+
+  })();
+  </script>
 </body>
 </html>
