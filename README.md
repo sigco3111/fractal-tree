@@ -84,7 +84,7 @@ python3 -m http.server 8000
 
 ---
 
-## 🛠️ 기술 스택
+## 🛠️ Tech Stack
 
 | 항목 | 값 |
 |------|-----|
