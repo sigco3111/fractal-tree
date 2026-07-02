@@ -1,0 +1,12 @@
+# OpenCode / Sisyphus agent state
+.omo/
+.codegraph/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
