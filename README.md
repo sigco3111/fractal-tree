@@ -10,12 +10,12 @@
 
 | 항목 | 값 |
 |------|-----|
-| **Live URL** | https://fractal-tree-alpha.vercel.app |
+| **Live URL** | https://sigco3111.github.io/fractal-tree/ |
 | **상태** | 🟢 Production |
 | **렌더링** | 단일 HTML, 외부 의존성 0 |
 | **반응형** | viewport 자동 맞춤, 모바일 터치 지원 |
 
-[![Live Demo](https://img.shields.io/badge/Vercel-Live%20Demo-black?style=for-the-badge&logo=vercel)](https://fractal-tree-alpha.vercel.app)
+[![Live Demo](https://img.shields.io/badge/GitHub%20Pages-Live%20Demo-222222?style=for-the-badge&logo=githubpages)](https://sigco3111.github.io/fractal-tree/)
 
 **빠른 사용법**: 페이지 열기 → 자동으로 트리가 자라남 → 1~4 키로 팔레트 전환 → 클릭으로 새 나무 심기
 
@@ -53,7 +53,7 @@
 ## 🚀 사용법 (Usage)
 
 ### 라이브 데모
-👉 https://fractal-tree-alpha.vercel.app 에서 바로 실행
+👉 https://sigco3111.github.io/fractal-tree/ 에서 바로 실행
 
 ### 로컬 실행
 
@@ -93,7 +93,7 @@ python3 -m http.server 8000
 | 스타일 | CSS3 Custom Properties (CSS Variables) |
 | 폰트 | Noto Serif KR, Apple SD Gothic Neo |
 | 빌드 | 없음 (zero-deps) |
-| 호스팅 | Vercel (정적 사이트) |
+| 호스팅 | GitHub Pages (정적 사이트) |
 
 ### 알고리즘 요약
 
@@ -129,7 +129,7 @@ function growBranch(x, y, angle, length, depth) {
 
 > A **golden fractal tree** slowly growing from the bottom of the screen, with **pink cherry blossom petals** drifting down from the branch tips after growth completes — generative art made with HTML5 Canvas.
 
-- **Live Demo**: https://fractal-tree-alpha.vercel.app
+- **Live Demo**: https://sigco3111.github.io/fractal-tree/
 - **Algorithm**: Mathematical recursion for branches + particle system for petals
 - **Tech**: HTML5 Canvas, Vanilla JS, zero dependencies
 - **License**: MIT
@@ -147,7 +147,7 @@ MIT License — 자유롭게 사용, 수정, 배포 가능
 - **L-System / Fractal Tree** — 고전적 재귀 알고리즘
 - **Particle System** — 벚꽃 낙하 시뮬레이션
 - **OpenCode + MiniMax-M3** — AI 협업 부트스트랩
-- **Vercel** — 정적 사이트 호스팅
+- **GitHub Pages** — 정적 사이트 호스팅
 - 코딩미션 참조 페이지: [cokac.com](https://cokac.com/list/announcement/24)
 
 ---
